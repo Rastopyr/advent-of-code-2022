@@ -1,10 +1,13 @@
 defmodule CumpCleanup do
+  defp to_map_set([a, b]) do
+    MapSet.new(a..b)
+  end
 
   defp assignment_to_range(assignment) do
     assignment
     |> String.split("-", trim: true)
-    |> Enum.map(&Integer.parse(&1))
-    |> Enum.map(&elem(&1, 0))
+    |> Enum.map(&String.to_integer(&1))
+    |> to_map_set
   end
 
   defp normalize(row) do
@@ -14,14 +17,8 @@ defmodule CumpCleanup do
     |> Enum.map(&assignment_to_range(&1))
   end
 
-  defp is_covered([first, second]) do
-    [first_start, first_end] = first
-    [second_start, second_end] = second
-
-    first_cover_second = first_start <= second_start and first_end >= second_end
-    second_cover_first = first_start >= second_start and first_end <= second_end
-
-    first_cover_second or second_cover_first
+  defp is_covered([a, b]) do
+    MapSet.subset?(a, b) or MapSet.subset?(b, a)
   end
 
   defp match_cover(row) do
@@ -41,14 +38,8 @@ defmodule CumpCleanup do
     end)
   end
 
-  defp is_overlap([first, second]) do
-    [first_start, first_end] = first
-    [second_start, second_end] = second
-
-    !Range.disjoint?(
-      first_start..first_end,
-      second_start..second_end
-    )
+  defp is_overlap([a, b]) do
+    !MapSet.disjoint?(a, b)
   end
 
    defp match_overlap(row) do
