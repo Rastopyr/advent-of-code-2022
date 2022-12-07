@@ -4,32 +4,6 @@ defmodule DirSize do
     |> String.replace("\n", "")
   end
 
-   defp parse_line("$ cd /") do
-    {:root}
-  end
-
-  defp parse_line("$ cd ..") do
-    {:cd_up}
-  end
-
-  defp parse_line("$ cd " <> dir) do
-    {:cd, dir}
-  end
-
-  defp parse_line("$ ls") do
-    {:ls}
-  end
-
-  defp parse_line("dir " <> dir) do
-    {:dir, dir}
-  end
-
-  defp parse_line(file) do
-    [size, filename] = String.split(file, " ", trim: true)
-
-    {:file, filename, String.to_integer(size)}
-  end
-
   defp update_dir_size(nil, _, directories) do
     directories
   end
@@ -42,7 +16,7 @@ defmodule DirSize do
     |> (&update_dir_size(parent_dir, size, &1)).()
   end
 
-  defp handle_line({:root}, _) do
+  defp parse_line("$ cd /", _) do
     {
       %{
         "/root" => {0, nil}
@@ -51,13 +25,13 @@ defmodule DirSize do
     }
   end
 
-  defp handle_line({:cd_up}, {directories, current_dirname}) do
+  defp parse_line("$ cd ..", {directories, current_dirname}) do
     {_, parent_dirname} = directories[current_dirname]
 
     {directories, parent_dirname}
   end
 
-  defp handle_line({:cd, dir}, {directories, current_dirname}) do
+  defp parse_line("$ cd " <> dir, {directories, current_dirname}) do
     full_path = "#{current_dirname}/#{dir}"
 
     directories
@@ -65,15 +39,20 @@ defmodule DirSize do
     |> (&{&1, full_path}).()
   end
 
-  defp handle_line({:file, _, filesize}, {directories, current_dirname}) do
-
-    current_dirname
-    |> update_dir_size(filesize, directories)
-    |> (&{&1, current_dirname}).()
+  defp parse_line("$ ls", state) do
+    state
   end
 
-  defp handle_line(_, state) do
+  defp parse_line("dir " <> _, state) do
     state
+  end
+
+  defp parse_line(file, {directories, current_dirname}) do
+    [filesize, _] = String.split(file, " ", trim: true)
+
+    current_dirname
+    |> update_dir_size(String.to_integer(filesize), directories)
+    |> (&{&1, current_dirname}).()
   end
 
   def walk() do
@@ -81,8 +60,7 @@ defmodule DirSize do
     |> Enum.reduce({%{}, nil}, fn line, state ->
       line
       |> normalize()
-      |> parse_line()
-      |> handle_line(state)
+      |> parse_line(state)
     end)
   end
 
